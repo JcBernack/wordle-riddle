@@ -23,7 +23,7 @@ type Word = u32;
 
 fn main() {
     let start = Instant::now();
-    match read_lines("./words_alpha.txt") {
+    match read_lines("./wordle-nyt.txt") {
         Err(e) => println!("unable to load words: {}", e),
         Ok(lines) => {
             let mut encoded_words = lines
