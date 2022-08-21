@@ -12,6 +12,8 @@ use std::time::Instant;
 /// completed in 10.085339854s replace range with enumerate()
 /// completed in 9.68340491s
 /// completed in 18.833595413s collect all matching sets (number of hits 538)
+/// completed in 17.719814862s skip by numerical value
+/// completed in 13.953842087s skip by numerical value with binary search
 
 const WORD_LENGTH: u32 = 5;
 const WORD_COUNT: u32 = 5;
@@ -90,7 +92,9 @@ fn find_set(words: &[u32], bits: Word, set: &mut WordList) -> Vec<WordList> {
     let next_sets = words
         .iter()
         .enumerate()
-        .skip_while(|(_, word)| **word < bits)
+        // skip all words that have a lower numerical value than bits, they cannot be a match
+        // use binary search to find the first word with a numerical value larger or equal to bits
+        .skip(words.partition_point(|&x| x < bits))
         .filter(|(_, word)| *word & bits == 0);
     if set.len() + 1 == WORD_COUNT as usize {
         next_sets
