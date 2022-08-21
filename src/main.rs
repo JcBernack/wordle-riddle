@@ -14,7 +14,10 @@ use std::time::Instant;
 /// completed in 18.833595413s collect all matching sets (number of hits 538)
 
 const WORD_LENGTH: u32 = 5;
-// const WORD_COUNT: u32 = 5;
+const WORD_COUNT: u32 = 5;
+
+type Word = u32;
+type WordList = Vec<u32>;
 
 // TODO: do everything in uppercase, easier to read
 
@@ -30,7 +33,7 @@ fn main() {
                 .flat_map(encode_word)
                 // keep only words with 5 unique letters (no duplicates)
                 .filter(|x| x.count_ones() == WORD_LENGTH)
-                .collect::<Vec<u32>>();
+                .collect::<WordList>();
             // remove any duplicates in the bitwise representation (anagrams)
             encoded_words.sort();
             encoded_words.dedup();
@@ -55,7 +58,7 @@ fn main() {
     }
 }
 
-fn find_set_par(items: &Vec<u32>) -> Vec<Vec<u32>> {
+fn find_set_par(items: &WordList) -> Vec<WordList> {
     (0..items.len())
         .into_par_iter()
         .flat_map(|i| {
@@ -67,7 +70,7 @@ fn find_set_par(items: &Vec<u32>) -> Vec<Vec<u32>> {
         .collect()
 }
 
-fn find_set(items: &Vec<u32>, offset: usize, bits: u32, set: &mut Vec<u32>) -> Vec<Vec<u32>> {
+fn find_set(items: &WordList, offset: usize, bits: Word, set: &mut WordList) -> Vec<WordList> {
     let next_sets = items
         .iter()
         .enumerate()
@@ -88,7 +91,7 @@ fn find_set(items: &Vec<u32>, offset: usize, bits: u32, set: &mut Vec<u32>) -> V
                 // );
                 // set.pop();
             })
-            .collect::<Vec<Vec<u32>>>()
+            .collect::<Vec<WordList>>()
     } else {
         next_sets
             .flat_map(|(i, item)| {
@@ -102,7 +105,7 @@ fn find_set(items: &Vec<u32>, offset: usize, bits: u32, set: &mut Vec<u32>) -> V
 }
 
 // example output: "----e---i-----o-------w--z"
-fn format_encoded_word(bits: &u32) -> String {
+fn format_encoded_word(bits: &Word) -> String {
     (0..26)
         .flat_map(|i| match bits >> i & 1 == 1 {
             true => char::from_u32(i + 97),
@@ -111,7 +114,7 @@ fn format_encoded_word(bits: &u32) -> String {
         .collect()
 }
 
-fn encode_word(word: String) -> Option<u32> {
+fn encode_word(word: String) -> Option<Word> {
     word.chars().map(char2bit).reduce(|sum, x| sum | x)
 }
 
