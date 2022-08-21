@@ -9,6 +9,9 @@ use std::time::Instant;
 /// completed in 99.903330992s all loops parallel
 /// completed in 23.887663784s outermost loop in parallel
 /// completed in 15.566494685s remove redundant set copying in the non-parallelized loops
+/// completed in 10.085339854s replace range with enumerate()
+/// completed in 9.68340491s
+/// completed in 18.833595413s collect all matching sets (number of hits 538)
 
 const WORD_LENGTH: u32 = 5;
 // const WORD_COUNT: u32 = 5;
@@ -45,39 +48,57 @@ fn main() {
             println!("number of encoded words {}", encoded_words.len());
             println!("words cooked in {:?}", start.elapsed());
             // find all sets of size N that have no common bits
-            find_set_par(&encoded_words);
+            let hits = find_set_par(&encoded_words);
             println!("completed in {:?}", start.elapsed());
+            println!("number of hits {:?}", hits.len());
         }
     }
 }
 
-fn find_set_par(items: &Vec<u32>) {
-    (0..items.len()).into_par_iter().for_each(|i| {
-        if i % 100 == 0 {
-            println!("{}/{}", i, items.len());
-        }
-        find_set(items, i, items[i], &mut vec![items[i]])
-    })
+fn find_set_par(items: &Vec<u32>) -> Vec<Vec<u32>> {
+    (0..items.len())
+        .into_par_iter()
+        .flat_map(|i| {
+            if i % 100 == 0 {
+                println!("{}/{}", i, items.len());
+            }
+            find_set(items, i, items[i], &mut vec![items[i]])
+        })
+        .collect()
 }
 
-fn find_set(items: &Vec<u32>, offset: usize, bits: u32, set: &mut Vec<u32>) {
-    (offset..items.len()).for_each(|i| {
-        let item = items[i];
-        if item & bits == 0 {
-            set.push(item);
-            if set.len() == 5 {
+fn find_set(items: &Vec<u32>, offset: usize, bits: u32, set: &mut Vec<u32>) -> Vec<Vec<u32>> {
+    let next_sets = items
+        .iter()
+        .enumerate()
+        .skip(offset)
+        .filter(|(_, item)| *item & bits == 0);
+    if set.len() + 1 == WORD_COUNT as usize {
+        next_sets
+            .map(|(_, item)| {
+                let mut hit = set.clone();
+                hit.push(*item);
+                return hit;
                 // TODO: collect and return all sets, as iterator?
                 // TODO: match items in the set to original words and print nicely, also list anagrams
-                println!(
-                    "found a set {:?}",
-                    set.iter().map(format_encoded_word).collect::<String>()
-                );
-            } else {
-                find_set(items, i + 1, item | bits, set);
-            }
-            set.pop();
-        }
-    })
+                // set.push(*item);
+                // println!(
+                //     "found a set {:?}",
+                //     set.iter().map(format_encoded_word).collect::<String>()
+                // );
+                // set.pop();
+            })
+            .collect::<Vec<Vec<u32>>>()
+    } else {
+        next_sets
+            .flat_map(|(i, item)| {
+                set.push(*item);
+                let hits = find_set(items, i + 1, item | bits, set);
+                set.pop();
+                hits
+            })
+            .collect()
+    }
 }
 
 // example output: "----e---i-----o-------w--z"
