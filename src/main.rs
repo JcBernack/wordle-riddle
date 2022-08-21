@@ -14,12 +14,12 @@ use std::time::Instant;
 /// completed in 18.833595413s collect all matching sets (number of hits 538)
 /// completed in 17.719814862s skip by numerical value
 /// completed in 13.953842087s skip by numerical value with binary search
+/// completed in 13.766282412s skip via slice not iterator
 
 const WORD_LENGTH: u32 = 5;
 const WORD_COUNT: u32 = 5;
 
 type Word = u32;
-type WordList = Vec<u32>;
 
 fn main() {
     let start = Instant::now();
@@ -33,7 +33,7 @@ fn main() {
                 .flat_map(encode_word)
                 // keep only words with 5 unique letters (no duplicates)
                 .filter(|x| x.count_ones() == WORD_LENGTH)
-                .collect::<WordList>();
+                .collect::<Vec<Word>>();
             // remove any duplicates in the bitwise representation (anagrams)
             encoded_words.sort();
             encoded_words.dedup();
@@ -75,7 +75,7 @@ fn main() {
 }
 
 // TODO: return iterator instead of collect()'ing
-fn find_set_par(words: &WordList) -> Vec<WordList> {
+fn find_set_par(words: &Vec<Word>) -> Vec<Vec<Word>> {
     (0..words.len())
         .into_par_iter()
         .flat_map(|i| {
@@ -88,13 +88,14 @@ fn find_set_par(words: &WordList) -> Vec<WordList> {
 }
 
 // TODO: return iterator instead of collect()'ing
-fn find_set(words: &[u32], bits: Word, set: &mut WordList) -> Vec<WordList> {
-    let next_sets = words
+fn find_set(words: &[u32], bits: Word, set: &mut Vec<Word>) -> Vec<Vec<Word>> {
+    // skip all words that have a lower numerical value than bits, they cannot be a match
+    // use binary search to find the first word with a numerical value larger or equal to bits
+    let skipped = words.partition_point(|&x| x < bits);
+    let next_sets = words[skipped..]
         .iter()
         .enumerate()
-        // skip all words that have a lower numerical value than bits, they cannot be a match
-        // use binary search to find the first word with a numerical value larger or equal to bits
-        .skip(words.partition_point(|&x| x < bits))
+        // only keep words that have no overlap with bits
         .filter(|(_, word)| *word & bits == 0);
     if set.len() + 1 == WORD_COUNT as usize {
         next_sets
@@ -108,7 +109,7 @@ fn find_set(words: &[u32], bits: Word, set: &mut WordList) -> Vec<WordList> {
         next_sets
             .flat_map(|(i, word)| {
                 set.push(*word);
-                let hits = find_set(&words[i + 1..], word | bits, set);
+                let hits = find_set(&words[skipped + i + 1..], word | bits, set);
                 set.pop();
                 hits
             })
