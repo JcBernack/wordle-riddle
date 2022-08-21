@@ -19,8 +19,6 @@ const WORD_COUNT: u32 = 5;
 type Word = u32;
 type WordList = Vec<u32>;
 
-// TODO: do everything in uppercase, easier to read
-
 fn main() {
     let start = Instant::now();
     match read_lines("./words_alpha.txt") {
@@ -51,52 +49,62 @@ fn main() {
             println!("number of encoded words {}", encoded_words.len());
             println!("words cooked in {:?}", start.elapsed());
             // find all sets of size N that have no common bits
-            let hits = find_set_par(&encoded_words);
+            let sets = find_set_par(&encoded_words);
             println!("completed in {:?}", start.elapsed());
-            println!("number of hits {:?}", hits.len());
+            println!("number of sets {:?}", sets.len());
+            // TODO: match items in the set to original words and print nicely, also list anagrams
+            // println!(
+            //     "found a set {:?}",
+            //     set.iter().map(format_encoded_word).collect::<String>()
+            // );
+            println!("verify my theorem xD");
+            for set in sets {
+                let mut bits = 0;
+                for word in set {
+                    if word < bits {
+                        panic!("shit.")
+                    }
+                    bits |= word;
+                }
+            }
+            println!("nice!");
         }
     }
 }
 
-fn find_set_par(items: &WordList) -> Vec<WordList> {
-    (0..items.len())
+// TODO: return iterator instead of collect()'ing
+fn find_set_par(words: &WordList) -> Vec<WordList> {
+    (0..words.len())
         .into_par_iter()
         .flat_map(|i| {
-            if i % 100 == 0 {
-                println!("{}/{}", i, items.len());
+            if i % 1000 == 0 {
+                println!("{}/{}", i, words.len());
             }
-            find_set(items, i, items[i], &mut vec![items[i]])
+            find_set(&words[i + 1..], words[i], &mut vec![words[i]])
         })
         .collect()
 }
 
-fn find_set(items: &WordList, offset: usize, bits: Word, set: &mut WordList) -> Vec<WordList> {
-    let next_sets = items
+// TODO: return iterator instead of collect()'ing
+fn find_set(words: &[u32], bits: Word, set: &mut WordList) -> Vec<WordList> {
+    let next_sets = words
         .iter()
         .enumerate()
-        .skip(offset)
-        .filter(|(_, item)| *item & bits == 0);
+        .skip_while(|(_, word)| **word < bits)
+        .filter(|(_, word)| *word & bits == 0);
     if set.len() + 1 == WORD_COUNT as usize {
         next_sets
-            .map(|(_, item)| {
+            .map(|(_, word)| {
                 let mut hit = set.clone();
-                hit.push(*item);
+                hit.push(*word);
                 return hit;
-                // TODO: collect and return all sets, as iterator?
-                // TODO: match items in the set to original words and print nicely, also list anagrams
-                // set.push(*item);
-                // println!(
-                //     "found a set {:?}",
-                //     set.iter().map(format_encoded_word).collect::<String>()
-                // );
-                // set.pop();
             })
-            .collect::<Vec<WordList>>()
+            .collect()
     } else {
         next_sets
-            .flat_map(|(i, item)| {
-                set.push(*item);
-                let hits = find_set(items, i + 1, item | bits, set);
+            .flat_map(|(i, word)| {
+                set.push(*word);
+                let hits = find_set(&words[i + 1..], word | bits, set);
                 set.pop();
                 hits
             })
@@ -104,22 +112,21 @@ fn find_set(items: &WordList, offset: usize, bits: Word, set: &mut WordList) -> 
     }
 }
 
-// example output: "----e---i-----o-------w--z"
+// example output: "----E---I-----O-------W--Z"
 fn format_encoded_word(bits: &Word) -> String {
     (0..26)
         .flat_map(|i| match bits >> i & 1 == 1 {
-            true => char::from_u32(i + 97),
+            true => char::from_u32(i + 'A' as u32),
             false => Some('-'),
         })
         .collect()
 }
 
 fn encode_word(word: String) -> Option<Word> {
-    word.chars().map(char2bit).reduce(|sum, x| sum | x)
-}
-
-fn char2bit(c: char) -> u32 {
-    1 << (c as u32 - 97)
+    word.to_ascii_uppercase()
+        .chars()
+        .map(|c| 1 << (c as u32 - 'A' as u32))
+        .reduce(|sum, x| sum | x)
 }
 
 // The output is wrapped in a Result to allow matching on errors
