@@ -1,8 +1,4 @@
-use std::{
-    cmp::Ordering,
-    fmt::Debug,
-    time::Instant,
-};
+use std::{cmp::Ordering, fmt::Debug, time::Instant};
 
 use fnv::{FnvHashMap, FnvHashSet};
 use rayon::{
@@ -35,7 +31,7 @@ impl Bitword {
                     x ^= 1 << zeros;
                     ('a' as u32) + zeros
                 })
-                    .unwrap()
+                .unwrap()
             })
         })
     }
@@ -127,7 +123,7 @@ pub fn main() {
     words.par_sort_unstable();
     words.dedup();
 
-    let words_set = words.iter().copied().collect::<FnvHashSet<_>>();
+    let words_set = words.iter().collect::<FnvHashSet<_>>();
 
     let buckets = ('a'..='z')
         .map(|c| {
@@ -136,7 +132,6 @@ pub fn main() {
                 words
                     .iter()
                     .filter(|w| !(**w & Bitword::new(c)).empty())
-                    .copied()
                     .collect::<Vec<_>>(),
             )
         })
@@ -150,26 +145,16 @@ pub fn main() {
 
     // println!("freq: {:?}", freq);
 
-    let mut pairs = words
+    let mut pairs: Vec<Bitword> = words
         .par_iter()
-        .fold(Vec::new, |mut vec, word| {
-            words
-                .iter()
-                .map(|w| *w | *word)
-                .filter(|w| w.len() == 10)
-                .for_each(|w| vec.push(w));
-            vec
-        })
-        .reduce(Vec::new, |mut a, mut v| {
-            a.append(&mut v);
-            a
-        });
+        .flat_map_iter(|word| words.iter().map(|w| *w | *word).filter(|w| w.len() == 10))
+        .collect();
     pairs.par_sort_unstable();
     pairs.dedup();
 
-    let pairs_set = pairs.iter().copied().collect::<FnvHashSet<_>>();
+    let pairs_set = pairs.iter().collect::<FnvHashSet<_>>();
 
-    // println!("{} pairs found", pairs.len());
+    println!("{} pairs found", pairs.len());
 
     let pair_to_str = |p: Bitword| {
         words
@@ -185,34 +170,28 @@ pub fn main() {
 
     let solutions = pairs
         .par_iter()
-        .filter(|w| {
+        .filter(|pair| {
             // println!("{:?}", **w);
-            (**w & Bitword::new(freq[0].0)).empty() && (**w & Bitword::new(freq[1].0)).empty()
+            (**pair & Bitword::new(freq[0].0)).empty() && (**pair & Bitword::new(freq[1].0)).empty()
         })
-        .fold(Vec::new, |mut vec, w| {
-            starting_words.iter().for_each(|sw| {
-                let combined = *w | *sw;
-                if combined.len() == 15 {
+        .flat_map_iter(|pair| {
+            starting_words
+                .iter()
+                .map(|&sw| (sw, *sw | *pair))
+                .filter(|(_, combined)| combined.len() == 15)
+                .flat_map(|(sw, combined)| {
                     let end = !combined;
-                    for c in end.chars() {
-                        let e = end ^ Bitword::new(c);
-                        if pairs_set.contains(&e) {
-                            vec.push((*sw, *w, e))
-                        }
-                    }
-                }
-            });
-            vec
+                    end.chars()
+                        .map(move |c| end ^ Bitword::new(c))
+                        .filter(|e| pairs_set.contains(&e))
+                        .map(move |e| (*sw, *pair, e))
+                })
+                .collect::<Vec<(Bitword, Bitword, Bitword)>>()
         })
-        .reduce(Vec::new, |mut a, mut v| {
-            a.append(&mut v);
-            a
-        })
-        .iter()
         .map(|(w, p0, p1)| {
-            let (w1, w2) = pair_to_str(*p0);
-            let (w3, w4) = pair_to_str(*p1);
-            let mut s = [word_to_str[w], w1, w2, w3, w4];
+            let (w1, w2) = pair_to_str(p0);
+            let (w3, w4) = pair_to_str(p1);
+            let mut s = [word_to_str[&w], w1, w2, w3, w4];
             s.sort_unstable();
             s
         })
