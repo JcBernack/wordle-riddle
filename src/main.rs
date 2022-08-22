@@ -1,3 +1,5 @@
+mod bored_person;
+
 use rayon::prelude::*;
 use std::fs::File;
 use std::io::{self, BufRead};
@@ -60,8 +62,14 @@ const WORD_COUNT: u32 = 5;
 type Word = u32;
 
 fn main() {
+    // bored_person::main();
+    // return;
+    assert!(
+        WORD_LENGTH * WORD_COUNT <= 26,
+        "the alphabet only has 26 letters!"
+    );
     let start = Instant::now();
-    match read_lines("./wordle-nyt.txt") {
+    match read_lines("./words_alpha.txt") {
         Err(e) => println!("unable to load words: {}", e),
         Ok(lines) => {
             let mut encoded_words = lines
@@ -76,9 +84,9 @@ fn main() {
             encoded_words.sort();
             encoded_words.dedup();
             // encoded_words.reverse();
-            for x in &encoded_words {
-                println!("{} {}", format_encoded_word(x), x);
-            }
+            // for x in &encoded_words {
+            //     println!("{} {}", format_encoded_word(x), x);
+            // }
 
             // let mut narf: Vec<Word> = encoded_words
             //     .iter()
@@ -109,7 +117,6 @@ fn main() {
             println!("words cooked in {:?}", start.elapsed());
             // find all sets of size N that have no common bits
             let sets = find_set_par(&encoded_words);
-            println!("completed in {:?}", start.elapsed());
             println!("number of sets {:?}", sets.len());
             // TODO: match items in the set to original words and print nicely, also list anagrams
             // println!(
@@ -118,6 +125,7 @@ fn main() {
             // );
         }
     }
+    println!("completed in {:?}", start.elapsed());
 }
 
 // TODO: return iterator instead of collect()'ing

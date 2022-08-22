@@ -92,12 +92,11 @@ impl std::ops::Not for Bitword {
 pub fn main() {
     let start = Instant::now();
 
-    let allowed = include_str!("../wordle-nyt-allowed-guesses.txt");
-    let alphabetical = include_str!("../wordle-nyt-answers-alphabetical.txt");
+    let data = include_str!("../words_alpha.txt");
 
-    let (mut words, word_to_str): (Vec<_>, FnvHashMap<_, _>) = allowed
+    let (mut words, word_to_str): (Vec<_>, FnvHashMap<_, _>) = data
         .lines()
-        .chain(alphabetical.lines())
+        .filter(|w| w.len() == 5)
         .map(|l| {
             let w = Bitword::encode(l);
             (w, (w, l))
@@ -226,6 +225,7 @@ pub fn main() {
         })
         .collect::<FnvHashSet<_>>();
 
-    println!("{} solutions {:?}", solutions.len(), solutions);
+    // println!("solutions {:?}", solutions);
+    println!("number of solutions {}", solutions.len());
     println!("{:?} total time", start.elapsed());
 }
