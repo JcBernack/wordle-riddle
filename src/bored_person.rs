@@ -1,10 +1,9 @@
-use std::{cmp::Ordering, fmt::Debug, time::Instant};
+use std::{fmt::Debug, time::Instant};
 
 use fnv::{FnvHashMap, FnvHashSet};
-use rayon::{
-    prelude::{IntoParallelRefIterator, ParallelIterator},
-    slice::ParallelSliceMut,
-};
+use rayon::prelude::ParallelBridge;
+use rayon::prelude::*;
+use rayon::slice::ParallelSliceMut;
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 struct Bitword(u32);
@@ -45,7 +44,7 @@ impl Debug for Bitword {
                 s[i as usize] = char::from_u32(('a' as u32) + i).unwrap();
             }
         }
-        write!(f, "{}", s.iter().collect::<String>())
+        write!(f, "\n{}", s.iter().collect::<String>())
     }
 }
 
@@ -81,28 +80,6 @@ impl std::ops::Not for Bitword {
     }
 }
 
-fn union<T: Eq + Ord + Copy>(a: &[T], b: &[T]) -> Vec<T> {
-    let mut vec = Vec::with_capacity(a.len().max(b.len()));
-    for i in 0.. {
-        match (a.get(i), b.get(i)) {
-            (None, None) => break,
-            (None, Some(v)) | (Some(v), None) => vec.push(*v),
-            (Some(x), Some(y)) => match x.cmp(y) {
-                Ordering::Less => {
-                    vec.push(*x);
-                    vec.push(*y);
-                }
-                Ordering::Equal => vec.push(*x),
-                Ordering::Greater => {
-                    vec.push(*y);
-                    vec.push(*x);
-                }
-            },
-        };
-    }
-    vec
-}
-
 pub fn main() {
     let start = Instant::now();
 
@@ -125,6 +102,7 @@ pub fn main() {
 
     let words_set = words.iter().collect::<FnvHashSet<_>>();
 
+    // build a lookup table mapping from a letter to all words containing that letter
     let buckets = ('a'..='z')
         .map(|c| {
             (
@@ -137,17 +115,39 @@ pub fn main() {
         })
         .collect::<FnvHashMap<_, _>>();
 
+    // sort the buckets by the number of words per letter, meaning the first elements will be "rare" letters
     let mut freq = buckets
         .iter()
         .map(|(c, words)| (*c, words.len()))
         .collect::<Vec<_>>();
     freq.sort_unstable_by_key(|(_, l)| *l);
 
-    // println!("freq: {:?}", freq);
+    println!("freq: {:?}", freq);
 
+    // build a list of all the words that contain at least one of the two least common letters
+    let mut starting_words: Vec<&Bitword> = buckets[&freq[0].0]
+        .iter()
+        .chain(&buckets[&freq[1].0])
+        .map(|x| *x)
+        .collect();
+    starting_words.sort();
+    starting_words.dedup();
+
+    // println!("starting_words: {:?}", starting_words);
+    println!("number of starting_words: {:?}", starting_words.len());
+
+    // build unique pairs of words with 10 unique letters
     let mut pairs: Vec<Bitword> = words
-        .par_iter()
-        .flat_map_iter(|word| words.iter().map(|w| *w | *word).filter(|w| w.len() == 10))
+        .iter()
+        .enumerate()
+        .par_bridge()
+        .flat_map_iter(|(i, word)| {
+            words
+                .iter()
+                .skip(i)
+                .map(|w| *w | *word)
+                .filter(|w| w.len() == 10)
+        })
         .collect();
     pairs.par_sort_unstable();
     pairs.dedup();
@@ -156,17 +156,25 @@ pub fn main() {
 
     println!("{} pairs found", pairs.len());
 
+    // finds the first word w which is contained in the pair p and where the other 5 letters,
+    // named x, of the pair make up a valid word too, returns both words w and x
     let pair_to_str = |p: Bitword| {
         words
             .iter()
             .find_map(|w| {
+                // overlap 2 letters
+                // p: 000001111111111
+                // w: 111001100000000
+                // ^: 111000011111111 => len 8
+                // overlap 5 letters
+                // p: 000001111111111
+                // w: 000001111100000
+                // ^: 000000000011111 => len 5
                 let x = p ^ *w;
                 (x.len() == 5 && words_set.contains(&x)).then(|| (word_to_str[w], word_to_str[&x]))
             })
             .unwrap()
     };
-
-    let starting_words = union(&buckets[&freq[0].0], &buckets[&freq[1].0]);
 
     let solutions = pairs
         .par_iter()
