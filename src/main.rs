@@ -16,6 +16,44 @@ use std::time::Instant;
 /// completed in 13.953842087s skip by numerical value with binary search
 /// completed in 13.766282412s skip via slice not iterator
 
+/// Different approach idea:
+/// observations:
+/// - the more words are in the set, the more bits are set
+/// - the more bits are set the higher the chances of "duplicate search paths"
+/// - try to merge these to reduce work
+///
+/// - this is similar to the removal of anagrams as one of the first steps
+/// - anagrams have identical search paths in this problem
+/// - the approach is basically to find and merge "set anagrams" without losing all the information about which words were used to build them
+///
+/// mapping of binary representation to a structure holding words
+/// sort and merge such that the binaries are unique afterwards and
+/// all the words of duplicate binaries are merged into one
+///
+/// before
+/// ABCDE--------------------- abcde
+/// ABCDE--------------------- abced (anagram)
+/// ABC--FG------------------- abcfg
+/// ---DE--HIJ---------------- dehij
+/// -----FGHIJ---------------- fghij
+///
+/// after
+/// ABCDE--------------------- (abcde, abced)
+/// ABC--FG------------------- (abcfg)
+/// ---DE--HIJ---------------- (dehij)
+/// -----FGHIJ---------------- (fghij)
+///
+/// then build all combinations of entries which have no overlap: (a & b == 0)
+/// while also merging their result structure
+/// ABCDEFGHIJ---------------- ((abcde, abced), (fghij)) combination of 1 and 4
+/// ABCDEFGHIJ---------------- ((abcfg), (dehij)) combination of 2 and 3
+///
+/// then sort and merge by binary representation again
+/// ABCDEFGHIJ---------------- (((abcde, abced), (fghij)), ((abcfg), (dehij)))
+///
+/// repeat 5 times
+///
+
 const WORD_LENGTH: u32 = 5;
 const WORD_COUNT: u32 = 5;
 
@@ -31,7 +69,7 @@ fn main() {
                 // keep only words with 5 letters
                 .filter(|x| x.len() == WORD_LENGTH as usize)
                 .flat_map(encode_word)
-                // keep only words with 5 unique letters (no duplicates)
+                // keep only words with 5 unique letters (no duplicate letters)
                 .filter(|x| x.count_ones() == WORD_LENGTH)
                 .collect::<Vec<Word>>();
             // remove any duplicates in the bitwise representation (anagrams)
@@ -41,6 +79,25 @@ fn main() {
             for x in &encoded_words {
                 println!("{} {}", format_encoded_word(x), x);
             }
+
+            // let mut narf: Vec<Word> = encoded_words
+            //     .iter()
+            //     .enumerate()
+            //     .flat_map(|(i, w1)| {
+            //         encoded_words
+            //             .iter()
+            //             .skip(i + 1)
+            //             .map(|w2| w1 | w2)
+            //             .filter(|x| x.count_ones() == 10)
+            //             .collect::<Vec<Word>>()
+            //     })
+            //     .collect();
+            // println!("number of pairs: {}", narf.len());
+            // narf.sort();
+            // narf.dedup();
+            // println!("number of unique pairs: {}", narf.len());
+            // return;
+
             // println!(
             //     "encoded words {:?}",
             //     encoded_words
@@ -59,17 +116,6 @@ fn main() {
             //     "found a set {:?}",
             //     set.iter().map(format_encoded_word).collect::<String>()
             // );
-            println!("verify my theorem xD");
-            for set in sets {
-                let mut bits = 0;
-                for word in set {
-                    if word < bits {
-                        panic!("shit.")
-                    }
-                    bits |= word;
-                }
-            }
-            println!("nice!");
         }
     }
 }
