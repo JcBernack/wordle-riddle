@@ -25,8 +25,8 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     println!("{:?} cooking words", start.elapsed());
     println!("{:?} cooked words", words.len());
 
-    // build a lookup table mapping from a letter to all words containing that letter
-    let words_per_letter = ('A'..='Z')
+    // build a lookup table mapping from a character to all words containing that character
+    let words_per_character = ('A'..='Z')
         .par_bridge()
         .map(|c| {
             (
@@ -36,22 +36,22 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
         })
         .collect::<FnvHashMap<_, _>>();
 
-    // sort the buckets by the number of words per letter, meaning the first elements will be "rare" letters
-    let mut word_count_per_letter = words_per_letter
+    // sort the buckets by the number of words per character, meaning the first elements will be "rare" characters
+    let mut word_count_per_character = words_per_character
         .iter()
         .map(|(c, words)| (*c, words.len()))
         .collect::<Vec<_>>();
-    word_count_per_letter.sort_unstable_by_key(|(_, l)| *l);
+    word_count_per_character.sort_unstable_by_key(|(_, l)| *l);
 
-    let rare_letter1 = word_count_per_letter[0].0;
-    let rare_letter2 = word_count_per_letter[1].0;
+    let rare_character1 = word_count_per_character[0].0;
+    let rare_character2 = word_count_per_character[1].0;
 
-    println!("freq: {:?}", word_count_per_letter);
+    println!("freq: {:?}", word_count_per_character);
 
-    // build a list of all the words that contain at least one of the two least common letters
-    let mut rare_words: Vec<&BitWord> = words_per_letter[&rare_letter1]
+    // build a list of all the words that contain at least one of the two least common characters
+    let mut rare_words: Vec<&BitWord> = words_per_character[&rare_character1]
         .iter()
-        .chain(&words_per_letter[&rare_letter2])
+        .chain(&words_per_character[&rare_character2])
         .map(|x| *x)
         .collect();
     rare_words.sort();
@@ -61,7 +61,7 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     println!("number of rare words: {:?}", rare_words.len());
     println!("{:?} frequency bucketing", start.elapsed());
 
-    // build unique pairs of words with 10 unique letters
+    // build unique pairs of words with 10 unique characters
     let mut pairs: Vec<BitWord> = words
         .iter()
         .enumerate()
@@ -82,18 +82,18 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     println!("{:?} finding pairs", start.elapsed());
     println!("{} pairs found", pairs.len());
 
-    // finds all words w1 which are contained in the pair p and where the other 5 letters
+    // finds all words w1 which are contained in the pair p and where the other 5 characters
     // of the pair make up a valid word w2 too, returns a list of pairs (w1, w2)
     let words_in_pair = |p: BitWord| {
         words
             .iter()
             .filter(|&w| p.flip(w).count() == 5)
             .map(|w| {
-                // overlap 2 letters
+                // overlap 2 characters
                 // p: 000001111111111
                 // w: 111001100000000
                 // ^: 111000011111111 => len 8 => not a word
-                // overlap 5 letters
+                // overlap 5 characters
                 // p: 000001111111111
                 // w: 000001111100000
                 // ^: 000000000011111 => len 5 => valid other word in the pair
@@ -104,13 +104,13 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
             .collect::<Vec<(&String, &String)>>()
     };
 
-    // match pairs to a word containing at least one of the two rarest letters
-    // then determine the remaining 10 letters and check if a pair using those exists
+    // match pairs to a word containing at least one of the two rarest characters
+    // then determine the remaining 10 characters and check if a pair using those exists
     let solutions = pairs
         .par_iter()
         // .filter(|pair| {
         //     // println!("{:?}", **w);
-        //     !pair.contains(rare_letter1) || !pair.contains(rare_letter2)
+        //     !pair.contains(rare_character1) || !pair.contains(rare_character2)
         // })
         .flat_map_iter(|pair| {
             rare_words
@@ -118,15 +118,15 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
                 .map(|&sw| (sw, sw.merge(pair)))
                 .filter(|(_, combined)| combined.count() == 15)
                 .flat_map(|(sw, combined)| {
-                    // end will have all bits set of the 11 remaining, yet unused letters
+                    // end will have all bits set of the 11 remaining, yet unused characters
                     let remaining = combined.invert();
                     remaining
                         .chars()
                         // individually toggle each remaining bit off, resulting in 10 bit words
                         .map(move |c| remaining.toggle(c))
-                        // and try to find a pair using those 10 letters
+                        // and try to find a pair using those 10 characters
                         .filter(|e| pairs_set.contains(&e))
-                        // if there is one we can complete our 15 letter set with the 10 letters of this pair
+                        // if there is one we can complete our 15 character set with the 10 characters of this pair
                         .map(move |e| (*sw, *pair, e))
                 })
                 .collect::<Vec<(BitWord, BitWord, BitWord)>>()
