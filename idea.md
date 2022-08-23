@@ -1,12 +1,8 @@
 # Idea for a different approach
 
-observations:
-
 - the more words are in the set, the more bits are set
 - the more bits are set the higher the chances of "duplicate search paths"
 - try to merge these to reduce work
-
-
 - this is similar to the removal of anagrams as one of the first steps
 - anagrams have identical search paths in this problem
 - the approach is basically to find and merge "set anagrams" without losing all the information about which words were used to build them

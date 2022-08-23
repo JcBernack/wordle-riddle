@@ -5,18 +5,6 @@ use rayon::prelude::*;
 
 use crate::bit_word::BitWord;
 
-/// Solution times for words_alpha.txt:
-/// completed in 187.500069011s first attempt
-/// completed in  99.903330992s all loops parallel
-/// completed in  23.887663784s outermost loop in parallel
-/// completed in  15.566494685s remove redundant set copying in the non-parallelized loops
-/// completed in  10.085339854s replace range with enumerate()
-/// completed in  18.833595413s collect all matching sets (number of hits 538)
-/// completed in  17.719814862s skip by numerical value
-/// completed in  13.953842087s skip by numerical value with binary search
-/// completed in  13.766282412s skip via slice not iterator
-/// completed in   7.686388088s start with word including at least one of the rarest characters
-
 const WORD_LENGTH: u32 = 5;
 const WORD_COUNT: u32 = 5;
 
