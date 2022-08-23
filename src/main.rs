@@ -7,6 +7,7 @@ use fnv::FnvHashMap;
 use rayon::prelude::*;
 
 mod bored_person;
+mod bit_word;
 
 /// Results:
 /// completed in 187.500069011s first attempt
