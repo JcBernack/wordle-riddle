@@ -7,17 +7,13 @@ use rayon::slice::ParallelSliceMut;
 
 use crate::bit_word::BitWord;
 
-pub fn main() {
-    let start = Instant::now();
-
-    let data = include_str!("../words_alpha.txt");
-
-    let (mut words, word_to_str): (Vec<_>, FnvHashMap<_, _>) = data
-        .lines()
-        .filter(|w| w.len() == 5)
-        .map(|l| {
-            let w = BitWord::new(l);
-            (w, (w, l))
+pub fn solve(start: Instant, lines: &Vec<String>) {
+    let (mut words, word_to_str): (Vec<_>, FnvHashMap<_, _>) = lines
+        .iter()
+        .filter(|line| line.len() == 5)
+        .map(|line| {
+            let w = BitWord::new(line);
+            (w, (w, line))
         })
         .filter(|(w, _)| w.count() == 5)
         .unzip();
@@ -105,7 +101,7 @@ pub fn main() {
             })
             .filter(|(_, w2)| words_set.contains(&w2))
             .map(|(w1, w2)| (word_to_str[&w1], word_to_str[&w2]))
-            .collect::<Vec<(&str, &str)>>()
+            .collect::<Vec<(&String, &String)>>()
     };
 
     // match pairs to a word containing at least one of the two rarest letters
@@ -137,18 +133,18 @@ pub fn main() {
         })
         .flat_map_iter(|(w, p0, p1)| {
             // map back to strings
-            let w0 = word_to_str[&w];
+            let w0 = &word_to_str[&w];
             let wp0 = words_in_pair(p0);
             let wp1 = words_in_pair(p1);
             wp0.iter()
                 .flat_map(|(w1, w2)| {
                     wp1.iter().map(|(w3, w4)| {
-                        let mut set = [w0, w1, w2, w3, w4];
+                        let mut set = [*w0, *w1, *w2, *w3, *w4];
                         set.sort();
                         set
                     })
                 })
-                .collect::<Vec<[&str; 5]>>()
+                .collect::<Vec<[&String; 5]>>()
         })
         .collect::<FnvHashSet<_>>();
 

@@ -1,10 +1,10 @@
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
-#[derive(Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BitWord(u32);
 
 impl BitWord {
-    pub fn new(word: &str) -> Self {
+    pub fn new(word: &String) -> Self {
         word.chars().fold(Self::default(), |word, c| word.toggle(c))
     }
 
@@ -43,7 +43,7 @@ impl BitWord {
         !self.intersect(other).empty()
     }
 
-    // Bitwise XOR: Get characters that appear in one and only-one of the operands.
+    /// Bitwise XOR: Get characters that appear in one and only-one of the operands.
     pub fn flip(&self, other: &Self) -> Self {
         Self(self.0 ^ other.0)
     }
@@ -52,6 +52,7 @@ impl BitWord {
         Self::encode(c).has_overlap(self)
     }
 
+    /// Number of characters in this word.
     pub fn count(&self) -> u32 {
         self.0.count_ones()
     }
@@ -71,15 +72,15 @@ impl BitWord {
     }
 }
 
-impl Debug for BitWord {
+impl Display for BitWord {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut s = ['-'; 26];
-        for i in 0..26 {
-            if (self.0 & (1 << i)) != 0 {
-                s[i as usize] = char::from_u32(('a' as u32) + i).unwrap();
-            }
-        }
-        write!(f, "\n{}", s.iter().collect::<String>())
+        // example output: "----E---I-----O-------W--Z"
+        let str = ('A'..='Z')
+            .map(|c| match self.contains(c) {
+                true => c,
+                false => '-',
+            });
+        write!(f, "{}", str.collect::<String>())
     }
 }
 
