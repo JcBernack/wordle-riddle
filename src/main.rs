@@ -17,6 +17,7 @@ fn main() {
                 .map(|s| s.unwrap())
                 .collect();
             bored_person::solve(start, &lines);
+            println!("------------------------------");
             gigo::solve(start, &lines);
         }
     }
