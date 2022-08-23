@@ -167,12 +167,13 @@ pub fn main() {
     println!("{:?} finding pairs", start.elapsed());
     println!("{} pairs found", pairs.len());
 
-    // finds the first word w which is contained in the pair p and where the other 5 letters,
-    // named x, of the pair make up a valid word too, returns both words w and x
-    let pair_to_str = |p: Bitword| {
+    // finds all words w1 which are contained in the pair p and where the other 5 letters
+    // of the pair make up a valid word w2 too, returns a list of pairs (w1, w2)
+    let words_in_pair = |p: Bitword| {
         words
             .iter()
-            .find_map(|w| {
+            .filter(|&w| (p ^ *w).letters() == 5)
+            .map(|w| {
                 // overlap 2 letters
                 // p: 000001111111111
                 // w: 111001100000000
@@ -181,11 +182,11 @@ pub fn main() {
                 // p: 000001111111111
                 // w: 000001111100000
                 // ^: 000000000011111 => len 5 => valid other word in the pair
-                let x = p ^ *w;
-                (x.letters() == 5 && words_set.contains(&x))
-                    .then(|| (word_to_str[w], word_to_str[&x]))
+                (*w, p ^ *w)
             })
-            .unwrap()
+            .filter(|(_, w2)| words_set.contains(&w2))
+            .map(|(w1, w2)| (word_to_str[&w1], word_to_str[&w2]))
+            .collect::<Vec<(&str, &str)>>()
     };
 
     // match pairs to a word containing at least one of the two rarest letters
@@ -215,13 +216,20 @@ pub fn main() {
                 })
                 .collect::<Vec<(Bitword, Bitword, Bitword)>>()
         })
-        .map(|(w, p0, p1)| {
+        .flat_map(|(w, p0, p1)| {
             // map back to strings
-            let (w1, w2) = pair_to_str(p0);
-            let (w3, w4) = pair_to_str(p1);
-            let mut s = [word_to_str[&w], w1, w2, w3, w4];
-            s.sort_unstable();
-            s
+            let w0 = word_to_str[&w];
+            let wp0 = words_in_pair(p0);
+            let wp1 = words_in_pair(p1);
+            wp0.iter()
+                .flat_map(|(w1, w2)| {
+                    wp1.iter().map(|(w3, w4)| {
+                        let mut set = [w0, w1, w2, w3, w4];
+                        set.sort();
+                        set
+                    })
+                })
+                .collect::<Vec<[&str; 5]>>()
         })
         .collect::<FnvHashSet<_>>();
 
