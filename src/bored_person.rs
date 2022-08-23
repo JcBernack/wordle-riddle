@@ -109,6 +109,7 @@ pub fn main() {
     let words_set = words.iter().collect::<FnvHashSet<_>>();
 
     println!("{:?} cooking words", start.elapsed());
+    println!("{:?} cooked words", words.len());
 
     // build a lookup table mapping from a letter to all words containing that letter
     let words_per_letter = ('a'..='z')
@@ -216,7 +217,7 @@ pub fn main() {
                 })
                 .collect::<Vec<(Bitword, Bitword, Bitword)>>()
         })
-        .flat_map(|(w, p0, p1)| {
+        .flat_map_iter(|(w, p0, p1)| {
             // map back to strings
             let w0 = word_to_str[&w];
             let wp0 = words_in_pair(p0);

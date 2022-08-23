@@ -1,10 +1,12 @@
-mod bored_person;
-
-use rayon::prelude::*;
 use std::fs::File;
 use std::io::{self, BufRead};
 use std::path::Path;
 use std::time::Instant;
+
+use fnv::FnvHashMap;
+use rayon::prelude::*;
+
+mod bored_person;
 
 /// Results:
 /// completed in 187.500069011s first attempt
@@ -62,8 +64,9 @@ const WORD_COUNT: u32 = 5;
 type Word = u32;
 
 fn main() {
-    // bored_person::main();
+    bored_person::main();
     // return;
+    println!("--------------------");
     assert!(
         WORD_LENGTH * WORD_COUNT <= 26,
         "the alphabet only has 26 letters!"
@@ -72,7 +75,7 @@ fn main() {
     match read_lines("./words_alpha.txt") {
         Err(e) => println!("unable to load words: {}", e),
         Ok(lines) => {
-            let mut encoded_words = lines
+            let mut words = lines
                 .map(|x| x.unwrap())
                 // keep only words with 5 letters
                 .filter(|x| x.len() == WORD_LENGTH as usize)
@@ -81,12 +84,49 @@ fn main() {
                 .filter(|x| x.count_ones() == WORD_LENGTH)
                 .collect::<Vec<Word>>();
             // remove any duplicates in the bitwise representation (anagrams)
-            encoded_words.sort();
-            encoded_words.dedup();
-            // encoded_words.reverse();
-            // for x in &encoded_words {
-            //     println!("{} {}", format_encoded_word(x), x);
-            // }
+            words.sort();
+            words.dedup();
+
+            println!("{:?} cooked words", words.len());
+
+            // build a lookup table mapping from a letter to all words containing that letter
+            let words_per_letter = ('A'..='Z')
+                .par_bridge()
+                .map(|c| {
+                    (
+                        c,
+                        words
+                            .iter()
+                            .filter(|&w| (encode_char(c) & *w) != 0)
+                            .collect::<Vec<_>>(),
+                    )
+                })
+                .collect::<FnvHashMap<_, _>>();
+
+            // sort the buckets by the number of words per letter, meaning the first elements will be "rare" letters
+            let mut word_count_per_letter = words_per_letter
+                .iter()
+                .map(|(c, w)| (*c, w.len()))
+                .collect::<Vec<_>>();
+            word_count_per_letter.sort_unstable_by_key(|(_, l)| *l);
+
+            let rare_letter1 = word_count_per_letter[0].0;
+            let rare_letter2 = word_count_per_letter[1].0;
+
+            println!("freq: {:?}", word_count_per_letter);
+
+            // build a list of all the words that contain at least one of the two least common letters
+            let mut rare_words: Vec<Word> = words_per_letter[&rare_letter1]
+                .iter()
+                .chain(&words_per_letter[&rare_letter2])
+                .map(|x| **x)
+                .collect();
+            rare_words.sort();
+            rare_words.dedup();
+
+            // println!("starting_words: {:?}", starting_words);
+            println!("number of rare words: {:?}", rare_words.len());
+            println!("{:?} frequency bucketing", start.elapsed());
 
             // let mut narf: Vec<Word> = encoded_words
             //     .iter()
@@ -106,18 +146,36 @@ fn main() {
             // println!("number of unique pairs: {}", narf.len());
             // return;
 
-            // println!(
-            //     "encoded words {:?}",
-            //     encoded_words
-            //         .iter()
-            //         .map(format_encoded_word)
-            //         .collect::<Vec<String>>()
-            // );
-            println!("number of encoded words {}", encoded_words.len());
+            println!("number of encoded words {}", words.len());
             println!("words cooked in {:?}", start.elapsed());
+            // let mut candidates = encoded_words.clone();
+            // for i in 1..5 {
+            //     println!("run {}", i);
+            //     candidates = find_set_yolo(&candidates, &encoded_words);
+            // }
+            // println!("find pairs");
+            // let pairs = find_set_yolo(&encoded_words, &encoded_words);
+            // println!("find pairs of pairs");
+            // let quaduplets = find_set_yolo(&pairs, &pairs);
+            // println!("find pairs of 5er sets");
+            // let fiver = find_set_yolo(&quaduplets, &encoded_words);
+
             // find all sets of size N that have no common bits
-            let sets = find_set_par(&encoded_words);
+            let mut sets = find_set_par(&rare_words, &words);
+            sets.sort();
+            sets.dedup();
             println!("number of sets {:?}", sets.len());
+            // let mut unique_pairs: Vec<Word> = sets
+            //     .par_iter()
+            //     .map(|set| set.iter().fold(0, |sum, w| sum | w))
+            //     .collect();
+            // unique_pairs.sort();
+            // unique_pairs.dedup();
+            // println!("number of unique pairs: {}", unique_pairs.len());
+            // for set in sets {
+            //     let x = set.iter().fold(0, |sum, w| sum | w);
+            //     println!("{}", format_encoded_word(&x));
+            // }
             // TODO: match items in the set to original words and print nicely, also list anagrams
             // println!(
             //     "found a set {:?}",
@@ -128,15 +186,35 @@ fn main() {
     println!("completed in {:?}", start.elapsed());
 }
 
+// fn find_set_yolo(candidates: &Vec<Word>, words: &Vec<Word>) -> Vec<Word> {
+//     println!("number of inputs: {}", candidates.len());
+//     let mut narf: Vec<Word> = candidates
+//         .par_iter()
+//         .enumerate()
+//         .flat_map(|(i, w1)| {
+//             words
+//                 .iter()
+//                 .skip(i + 1)
+//                 .filter(|&w2| w1 & w2 == 0)
+//                 .map(|w2| w1 | w2)
+//                 .collect::<Vec<Word>>()
+//         })
+//         .collect();
+//     narf.par_sort();
+//     narf.dedup();
+//     println!("number of outputs: {}", narf.len());
+//     narf
+// }
+
 // TODO: return iterator instead of collect()'ing
-fn find_set_par(words: &Vec<Word>) -> Vec<Vec<Word>> {
-    (0..words.len())
+fn find_set_par(first_words: &Vec<Word>, words: &Vec<Word>) -> Vec<Vec<Word>> {
+    (0..first_words.len())
         .into_par_iter()
         .flat_map(|i| {
-            if i % 1000 == 0 {
-                println!("{}/{}", i, words.len());
+            if i % 100 == 0 {
+                println!("{}/{}", i, first_words.len());
             }
-            find_set(&words[i + 1..], words[i], &mut vec![words[i]])
+            find_set(&words, first_words[i], &mut vec![first_words[i]])
         })
         .collect()
 }
@@ -144,23 +222,24 @@ fn find_set_par(words: &Vec<Word>) -> Vec<Vec<Word>> {
 // TODO: return iterator instead of collect()'ing
 fn find_set(words: &[u32], bits: Word, set: &mut Vec<Word>) -> Vec<Vec<Word>> {
     // skip all words that have a lower numerical value than bits, they cannot be a match
-    // use binary search to find the first word with a numerical value larger or equal to bits
-    let skipped = words.partition_point(|&x| x < bits);
-    let next_sets = words[skipped..]
+    // use binary search to find the first word does not have a lower numerical value
+    let skipped = 0; //words.partition_point(|&x| x < bits);
+    let next_words = words[skipped..]
         .iter()
         .enumerate()
         // only keep words that have no overlap with bits
         .filter(|(_, word)| *word & bits == 0);
     if set.len() + 1 == WORD_COUNT as usize {
-        next_sets
+        next_words
             .map(|(_, word)| {
                 let mut hit = set.clone();
                 hit.push(*word);
+                hit.sort();
                 return hit;
             })
             .collect()
     } else {
-        next_sets
+        next_words
             .flat_map(|(i, word)| {
                 set.push(*word);
                 let hits = find_set(&words[skipped + i + 1..], word | bits, set);
@@ -184,8 +263,12 @@ fn format_encoded_word(bits: &Word) -> String {
 fn encode_word(word: String) -> Option<Word> {
     word.to_ascii_uppercase()
         .chars()
-        .map(|c| 1 << (c as u32 - 'A' as u32))
+        .map(encode_char)
         .reduce(|sum, x| sum | x)
+}
+
+fn encode_char(c: char) -> Word {
+    1 << (c.to_ascii_uppercase() as u32 - 'A' as u32)
 }
 
 // The output is wrapped in a Result to allow matching on errors
