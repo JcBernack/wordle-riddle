@@ -8,11 +8,14 @@ use rayon::slice::ParallelSliceMut;
 use crate::bit_word::BitWord;
 
 pub fn solve(start: Instant, lines: &Vec<String>) {
+
+    let alphabet: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string();
+
     let (mut words, word_to_str): (Vec<_>, FnvHashMap<_, _>) = lines
         .iter()
         .filter(|line| line.len() == 5)
         .map(|line| {
-            let w = BitWord::new(line);
+            let w = BitWord::encode(line, &alphabet);
             (w, (w, line))
         })
         .filter(|(w, _)| w.count() == 5)
@@ -26,12 +29,14 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     println!("{:?} cooked words", words.len());
 
     // build a lookup table mapping from a character to all words containing that character
-    let words_per_character = ('A'..='Z')
+    let words_per_character = alphabet
+        .chars()
+        .enumerate()
         .par_bridge()
-        .map(|c| {
+        .map(|(i, c)| {
             (
                 c,
-                words.iter().filter(|w| w.contains(c)).collect::<Vec<_>>(),
+                words.iter().filter(|w| w.contains(i as u32)).collect::<Vec<_>>(),
             )
         })
         .collect::<FnvHashMap<_, _>>();
@@ -119,11 +124,11 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
                 .filter(|(_, combined)| combined.count() == 15)
                 .flat_map(|(sw, combined)| {
                     // end will have all bits set of the 11 remaining, yet unused characters
-                    let remaining = combined.invert();
+                    let remaining = combined.invert(&alphabet);
                     remaining
-                        .chars()
+                        .bits()
                         // individually toggle each remaining bit off, resulting in 10 bit words
-                        .map(move |c| remaining.toggle(c))
+                        .map(move |i| remaining.toggle(i))
                         // and try to find a pair using those 10 characters
                         .filter(|e| pairs_set.contains(&e))
                         // if there is one we can complete our 15 character set with the 10 characters of this pair

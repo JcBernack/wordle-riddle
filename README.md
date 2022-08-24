@@ -20,5 +20,9 @@ Solution times for `words_alpha.txt` during development:
  17.719814862s skip by numerical value
  13.953842087s skip by numerical value with binary search
  13.766282412s skip via slice not iterator
-  7.686388088s force the first word to include at least one of the two rarest characters
+  
+  7.686388088s force the first word to include at least one of the two rarest characters (skipping disabled)
+
+ 10.735260840s custom alphabet sorted by frequency
+ 19.228372535s custom alphabet reversed (worst case)
 ```

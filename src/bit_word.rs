@@ -1,27 +1,35 @@
-use std::fmt::{Debug, Display};
+use std::fmt::Debug;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct BitWord(u32);
 
 impl BitWord {
-    pub fn new(word: &String) -> Self {
-        word.chars().fold(Self::default(), |word, c| word.toggle(c))
+    // encode word using the given alphabet
+    pub fn encode(word: &String, alphabet: &String) -> Self {
+        word.chars().fold(Self::default(), |word, c| {
+            word.toggle(alphabet.find(c.to_ascii_uppercase()).unwrap() as u32)
+        })
     }
 
-    fn encode(c: char) -> Self {
-        Self(1 << Self::char_pos(c))
+    // decode word using the given alphabet
+    pub fn format(&self, alphabet: &String) -> String {
+        // example output: "----E---I-----O-------W--Z"
+        alphabet
+            .chars()
+            .enumerate()
+            .map(|(i, c)| match self.contains(i as u32) {
+                true => c,
+                false => '-',
+            })
+            .collect()
     }
 
-    fn char_pos(c: char) -> u32 {
-        c.to_ascii_uppercase() as u32 - 'A' as u32
+    pub fn toggle(&self, i: u32) -> Self {
+        Self(self.0 ^ (1 << i))
     }
 
-    pub fn toggle(&self, c: char) -> Self {
-        Self(self.0 ^ Self::encode(c).0)
-    }
-
-    pub fn invert(&self) -> Self {
-        Self(!self.0 & ((1 << 26) - 1))
+    pub fn invert(&self, alphabet: &String) -> Self {
+        Self(!self.0 & ((1 << alphabet.len()) - 1))
     }
 
     /// Check if no character is set.
@@ -48,8 +56,8 @@ impl BitWord {
         Self(self.0 ^ other.0)
     }
 
-    pub fn contains(&self, c: char) -> bool {
-        Self::encode(c).has_overlap(self)
+    pub fn contains(&self, i: u32) -> bool {
+        self.0 & 1 << i != 0
     }
 
     /// Number of characters in this word.
@@ -57,61 +65,15 @@ impl BitWord {
         self.0.count_ones()
     }
 
-    pub fn chars(&self) -> impl Iterator<Item = char> {
-        let mut x = self.0;
-        std::iter::from_fn(move || {
-            let zeros = x.trailing_zeros();
-            (zeros < u32::BITS).then(|| {
-                char::from_u32({
-                    x ^= 1 << zeros;
-                    ('A' as u32) + zeros
-                })
-                .unwrap()
-            })
+    pub fn bits(&self) -> impl Iterator<Item = u32> {
+        let mut tmp = self.0;
+        std::iter::from_fn(move || match tmp {
+            0 => None,
+            _ => {
+                let index = tmp.trailing_zeros();
+                tmp ^= 1 << index;
+                Some(index)
+            }
         })
     }
 }
-
-impl Display for BitWord {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // example output: "----E---I-----O-------W--Z"
-        let str = ('A'..='Z')
-            .map(|c| match self.contains(c) {
-                true => c,
-                false => '-',
-            });
-        write!(f, "{}", str.collect::<String>())
-    }
-}
-
-// impl std::ops::BitOr for BitWord {
-//     type Output = Self;
-//
-//     fn bitor(self, rhs: Self) -> Self::Output {
-//         Self(self.0 | rhs.0)
-//     }
-// }
-//
-// impl std::ops::BitAnd for BitWord {
-//     type Output = Self;
-//
-//     fn bitand(self, rhs: Self) -> Self::Output {
-//         Self(self.0 & rhs.0)
-//     }
-// }
-//
-// impl std::ops::BitXor for BitWord {
-//     type Output = Self;
-//
-//     fn bitxor(self, rhs: Self) -> Self::Output {
-//         Self(self.0 ^ rhs.0)
-//     }
-// }
-//
-// impl std::ops::Not for BitWord {
-//     type Output = Self;
-//
-//     fn not(self) -> Self::Output {
-//         Self(!self.0 & ((1 << 26) - 1))
-//     }
-// }

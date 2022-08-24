@@ -13,11 +13,14 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
         WORD_LENGTH * WORD_COUNT <= 26,
         "the alphabet only has 26 characters!"
     );
+
+    let alphabet: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string();
+
     let mut words = lines
         .iter()
         // keep only words with 5 characters
         .filter(|line| line.len() == WORD_LENGTH as usize)
-        .map(BitWord::new)
+        .map(|line| BitWord::encode(line, &alphabet))
         // keep only words with 5 unique characters (no duplicate characters)
         .filter(|w| w.count() == WORD_LENGTH)
         .collect::<Vec<BitWord>>();
@@ -26,15 +29,23 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     words.dedup();
 
     println!("number of encoded words {}", words.len());
-    println!("words cooked in {:?}", start.elapsed());
+    println!("words encoded in {:?}", start.elapsed());
+    // for word in &words {
+    //     println!("{}", word.format(&alphabet));
+    // }
 
     // build a lookup table mapping from a character to all words containing that character
-    let words_per_character = ('A'..='Z')
+    let words_per_character = alphabet
+        .chars()
+        .enumerate()
         .par_bridge()
-        .map(|c| {
+        .map(|(i, c)| {
             (
                 c,
-                words.iter().filter(|w| w.contains(c)).collect::<Vec<_>>(),
+                words
+                    .iter()
+                    .filter(|w| w.contains(i as u32))
+                    .collect::<Vec<_>>(),
             )
         })
         .collect::<FnvHashMap<_, _>>();
@@ -46,25 +57,51 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
         .collect::<Vec<_>>();
     word_count_per_character.sort_unstable_by_key(|(_, l)| *l);
 
-    let rare_character1 = word_count_per_character[0].0;
-    let rare_character2 = word_count_per_character[1].0;
+    let custom_alphabet: String = word_count_per_character.iter().map(|(c, _)| c).collect();
+
+    println!("custom alphabet: {}", custom_alphabet);
+
+    // reencode all words using new alphabet
+    let mut custom_words = lines
+        .iter()
+        // keep only words with 5 characters
+        .filter(|line| line.len() == WORD_LENGTH as usize)
+        .map(|line| BitWord::encode(line, &custom_alphabet))
+        // keep only words with 5 unique characters (no duplicate characters)
+        .filter(|w| w.count() == WORD_LENGTH)
+        .collect::<Vec<BitWord>>();
+    // remove any duplicates in the bitwise representation (anagrams)
+    custom_words.sort();
+    custom_words.dedup();
+
+    let rare_chars = BitWord::encode(&custom_alphabet[..2].to_string(), &custom_alphabet);
 
     // build a list of all the words that contain at least one of the two least common characters
-    let mut rare_words: Vec<BitWord> = words_per_character[&rare_character1]
+    let rare_words: Vec<BitWord> = custom_words
         .iter()
-        .chain(&words_per_character[&rare_character2])
-        .map(|x| **x)
+        .filter(|x| x.has_overlap(&rare_chars))
+        .map(|x| *x)
         .collect();
-    rare_words.sort();
-    rare_words.dedup();
 
     // println!("rare words: {:?}", rare_words);
     println!("number of rare words: {:?}", rare_words.len());
     println!("freq: {:?}", word_count_per_character);
     println!("frequency bucketing {:?}", start.elapsed());
 
+    println!("custom words:");
+    for word in &custom_words {
+        println!(
+            "{} {:?}",
+            word.format(&custom_alphabet)
+                .chars()
+                .rev()
+                .collect::<String>(),
+            word
+        );
+    }
+
     // find all sets of size N that have no common bits
-    let mut sets = find_set_par(&rare_words, &words);
+    let mut sets = find_set_par(&rare_words, &custom_words);
     sets.sort();
     sets.dedup();
     println!("number of sets {:?}", sets.len());
@@ -86,8 +123,8 @@ fn find_set_par(first_words: &Vec<BitWord>, words: &Vec<BitWord>) -> Vec<Vec<Bit
 fn find_set(words: &[BitWord], bits: BitWord, set: &mut Vec<BitWord>) -> Vec<Vec<BitWord>> {
     // skip all words that have a lower numerical value than bits, they cannot be a match
     // use binary search to find the first word does not have a lower numerical value
-    // TODO: cannot use skipping currently because the rare_word's mess up with the order
-    let skipped = 0; //words.partition_point(|&x| x < bits);
+    // TODO: cannot use skipping currently because the rare_word's mess up the order
+    let skipped = words.partition_point(|&x| x < bits);
     let next_words = words[skipped..]
         .iter()
         .enumerate()
