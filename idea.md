@@ -1,4 +1,23 @@
-# Idea for a different approach
+# Ideas
+
+## Generalizations
+
+Parameters
+- WORD_LENGTH, default `5` 
+- WORD_COUNT, default `5`
+- alphabet, default is standard latin 26 characters `ABCDEFGHIJKLMNOPQRSTUVWXY`
+
+Improvements
+- get WORD_LENGTH and WORD_COUNT from CLI arguments
+- get input filename from CLI argument
+- determine alphabet from the input file (find all characters appearing in the file)
+- calculate amount of unused characters: alphabet.len() - WORD_LENGTH * WORD_COUNT
+  - if less than 0: abort, no solution possible
+  - if 0: every character must be used
+  - otherwise N characters will not be used (build first_words using the N+1 rarest letters)
+- only iterate over words that contain a missing character
+
+## Different approach
 
 - the more words are in the set, the more bits are set
 - the more bits are set the higher the chances of "duplicate search paths"

@@ -9,11 +9,6 @@ const WORD_LENGTH: u32 = 5;
 const WORD_COUNT: u32 = 5;
 
 pub fn solve(start: Instant, lines: &Vec<String>) {
-    assert!(
-        WORD_LENGTH * WORD_COUNT <= 26,
-        "the alphabet only has 26 characters!"
-    );
-
     let alphabet: String = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".to_string();
 
     let mut words = lines
@@ -29,7 +24,7 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     words.dedup();
 
     println!("number of encoded words {}", words.len());
-    println!("words encoded in {:?}", start.elapsed());
+    println!("{:?} words encoded", start.elapsed());
     // for word in &words {
     //     println!("{}", word.format(&alphabet));
     // }
@@ -127,7 +122,7 @@ pub fn solve(start: Instant, lines: &Vec<String>) {
     //     );
     // }
 
-    println!("all preparations {:?}", start.elapsed());
+    println!("{:?} preparations done", start.elapsed());
     // find all sets of size N that have no common bits
     let mut sets = find_set_par(
         &frequency_sorted_words[..rare_partition_index],
