@@ -25,4 +25,5 @@ Solution times for `words_alpha.txt` during development:
 
  10.735260840s custom alphabet sorted by frequency
  19.228372535s custom alphabet reversed (worst case)
+ 10.585388746s custom alphabet sorted by frequency and sorted word list by frequency (rare letters first)
 ```
